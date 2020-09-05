@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="utf-8">
+    <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+</head>
+
+<body>
+
+    <form class="box" action="">
+        <h1>Select Action</h1>
+        <button type="button" onclick="window.location.href='{{ url_for( 'login') }}';">Sign In</button>
+        <button type="button" onclick="window.location.href='{{ url_for( 'register') }}';">Sign Up</button>
+    </form>
+
+
+</body>
+
+</html>
