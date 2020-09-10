@@ -35,9 +35,9 @@ def login():
         hashedpass = row[1]
 
         if check_password_hash(hashedpass, password):
-            return "Login Successful!"
+            return render_template('result.html', result = "Login Successful!")
         else:
-            return "Login Unsuccessful!"
+            return render_template('result.html', result = "Login Unsuccessful!")
 
 
 @app.route("/register", methods = ["GET", "POST"])
@@ -59,16 +59,16 @@ def register():
         if usernameexists:
             if passwordexists:
                 # both are correct
-                return "This combination is already used. You need to log in!"
+                return render_template('result.html', result = "This combination is already used. You need to log in!")
             else:
                 # just the username is correct, not the password
-                return "This username is not available! Please choose another one and try again!"
+                return render_template('result.html', result = "This username is not available! Please choose another one and try again!")
 
         else:
             # new acc, needs to be registered
             cursor.execute("INSERT INTO Credentials (username, password) VALUES (%s, %s)", (username, pswrd))
             db.commit()
-            return "Registration Successful!"
+            return render_template('result.html', result = "Registration Successful!")
 
 
 
