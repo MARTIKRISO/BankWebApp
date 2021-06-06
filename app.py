@@ -1,22 +1,19 @@
 from flask import Flask, render_template, url_for, request
 from werkzeug.security import generate_password_hash, check_password_hash
-import mysql.connector
+import pymongo, random
 
 app = Flask(__name__)
+def generateuid(fname, lname):
+    #9 long string
+    uid = str(ord(fname[0])) + str(ord(lname[0]))
+    while len(uid) < 9:
+        uid += str(random.randint(0,9))  
+    return uid
 
-with open("password.txt", "r") as passwd:
-    # connects to the db server
-    db = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password=passwd.read(),
-        database="loginsystem"
-    )
-
-cursor = db.cursor(buffered=True)
-
-
-
+with open("password.txt", 'r') as file:
+    client = pymongo.MongoClient(file.read())
+    db = client["LoginDB"]
+    coll = db["LoginColl"]
 
 @app.route("/")
 def index():
@@ -28,49 +25,129 @@ def login():
     if request.method == "GET":
         return render_template("login.html", action = "Log In", title = "Login")
     else:
-        username = request.form['username']
-        password = request.form['password']
-        cursor.execute("SELECT * FROM Credentials WHERE username = %s", (username,))
-        row = cursor.fetchone()
-        hashedpass = row[1]
-
-        if check_password_hash(hashedpass, password):
-            return render_template('result.html', result = "Login Successful!")
-        else:
-            return render_template('result.html', result = "Login Unsuccessful!")
-
+        uid = request.form['uid']
+        pin = request.form['pin']
+        query = {'uid': uid}
+        found = coll.find(query)
+        account = dict()
+        for item in found:
+            account = item  
+        if check_password_hash(account['pin'], pin):
+            return render_template('result.html', result = f"Hey {account['fname']}", funds = account['money'])
+        
+        return render_template('result.html', result = "Login Unsuccessful!")
 
 @app.route("/register", methods = ["GET", "POST"])
 def register():
     if request.method == "GET":
         return render_template("register.html", action = "Sign Up", title = "Register")
     else:
-        username = request.form['username']
-        password = request.form['password']
-        # checks if the username is used
-        pswrd = generate_password_hash(password)
-        cursor.execute("SELECT EXISTS(SELECT * FROM Credentials WHERE username = %s)", (username,))
-        usernamefetch = cursor.fetchone()
-        usernameexists = usernamefetch[0]
-        cursor.execute("SELECT EXISTS(SELECT * FROM Credentials WHERE password = %s)", (password,))
-        passwordfetch = cursor.fetchone()
-        passwordexists = passwordfetch[0]
+        fname = request.form['fname']
+        lname = request.form['lname']
+        pin = request.form['pin']
 
-        if usernameexists:
-            if passwordexists:
-                # both are correct
-                return render_template('result.html', result = "This combination is already used. You need to log in!")
-            else:
-                # just the username is correct, not the password
-                return render_template('result.html', result = "This username is not available! Please choose another one and try again!")
+        if len(fname) >= 2 and len(lname) >= 2 and len(pin) == 4:
 
+            uniqueid = generateuid(fname, lname)    
+            hashedpin = generate_password_hash(pin)
+            coll.insert_one({'fname': fname, "lname": lname, 'uid': uniqueid, "pin": hashedpin, 'money': 0})
+            return render_template('result.html', uid = uniqueid, result = "Registration Successful!")
         else:
-            # new acc, needs to be registered
-            cursor.execute("INSERT INTO Credentials (username, password) VALUES (%s, %s)", (username, pswrd))
-            db.commit()
-            return render_template('result.html', result = "Registration Successful!")
+            return render_template('result.html', result = "Registration Unsuccessful! Please check data and try again!")
+@app.route("/addfunds", methods = ["GET", "POST"])
+def addfunds():
+    if request.method == "GET":
+        return render_template("addfunds.html", action = "Add Funds", title = "Add Funds")
+    else:
+        uid = request.form['uid']
+        pin = request.form['pin']
+        newfunds = request.form["funds"]
+
+        query = {'uid': uid}
+        found = coll.find(query)
+        account = dict()
+        for item in found:
+            account = item
+        if check_password_hash(account['pin'], pin):
+            coll.update_one({
+            '_id' : account['_id']
+            },{
+                '$set': {
+                    'money': account['money'] + int(newfunds)
+                }
+            }, upsert=False)
+            return render_template('result.html', result = "Action Successful")
+        else:
+            return render_template('result.html', result = "Incorrect Password! Please check data and try again!")
+
+       
+
+@app.route("/transferfunds", methods = ["GET", "POST"])
+def transferfunds():
+    if request.method == "GET":
+        return render_template("transferfunds.html", action = "Transfer Funds", title = "Transfer Funds")
+    else:
+        sourceuid = request.form['sourceuid']
+        pin = request.form['pin']
+        funds = request.form["funds"]
+        destuid = request.form['destuid']
+
+        query = {'uid': sourceuid}
+        found = coll.find(query)
+        saccount = dict()
+        for item in found:
+            saccount = item
+        if check_password_hash(saccount['pin'], pin):
+            query = {'uid': destuid}
+            found = coll.find(query)
+            daccount = dict()
+            for item in found:
+                daccount = item
+            coll.update_one({
+            '_id' : saccount['_id']
+            },{
+                '$set': {
+                    'money': saccount['money'] - int(funds)
+                }
+            }, upsert=False)
+
+            coll.update_one({
+            '_id' : daccount['_id']
+            },{
+                '$set': {
+                    'money': daccount['money'] + int(funds)
+                }
+            }, upsert=False)
+
+            return render_template('result.html', result = "Action Successful")
+        else:
+            return render_template('result.html', result = "Incorrect Data! Please try again!")
 
 
+@app.route("/recover", methods = ["GET", "POST"])
+def recover():
+
+    if request.method == "GET":
+        return render_template('recover.html')
+    else:
+        fname = request.form['fname']
+        lname = request.form['lname']
+        pin = request.form['pin']
+
+        query = {'fname': fname, 'lname': lname}
+        found = coll.find(query)
+        print(query)
+        account = dict()
+        for item in found:
+            account = item
+        print(account)
+        try:
+            if check_password_hash(account['pin'], pin):
+                return render_template('result.html', result = f"Your UID is {account['uid']}")
+            else:
+                return render_template('result.html', result = "Incorrect Data! Please try again!")
+        except:
+            return render_template('result.html', result = "Incorrect Data! Please try again!")
 
 if __name__ == "__main__":
     app.run(debug=True)

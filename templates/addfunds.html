@@ -3,18 +3,18 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Register</title>
+    <title>Add Funds</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='loginregister.css') }}">
 </head>
 
 <body>
 
-    <form class="box" action="/register" method="POST">
-        <h1>Sign Up</h1>
-        <input type="text" name="fname" placeholder="First Name">
-        <input type="text" name="lname" placeholder="Last Name">
+    <form class="box" action="/addfunds" method="POST">
+        <h1>Add Funds</h1>
+        <input type="text" name="uid" placeholder="ID">
         <input type="password" name="pin" placeholder="PIN">
-        <input type="submit" name="" value="Sign Up">
+        <input type="text" name="funds" placeholder="Funds">
+        <input type="submit" name="" value="Add Funds">
         <button type="button" onclick="window.location.href='{{ url_for( 'index') }}';">Back</button>
     </form>
 
